@@ -1,0 +1,140 @@
+//Obtener address de metamask luego de conectar
+await ethereum.request({ method: 'eth_requestAccounts' });
+const accounts = await web3.eth.getAccounts();
+address = accounts[0];
+
+// inyectar proveedor
+web3 = new Web3(window.ethereum);
+
+// Instancio contrato
+swapInstance = new web3.eth.Contract(contract_abi, contract_address);
+
+// Comunicarse a una write function
+swapInstance.methods.buy(AmountToBuy).send({from: address})
+
+// comunicarse a una funcion tipo view
+const balanceUSDT = await usdtInstance.methods.balanceOf(address).call();
+
+
+
+// recursos
+// para volver json a una sola linea:
+https://codebeautify.org/jsonminifier
+
+//documentacion de web3
+https://web3js.readthedocs.io/en/v1.10.0/web3-eth-contract.html#methods-mymethod-send
+
+// documentacion de metamask:
+https://docs.metamask.io/wallet/reference/eth_requestaccounts/
+
+// lugar para obtener RPCs
+https://chainlist.org/
+
+// wizzard de openzeppelin para crear tokens rápido
+https://wizard.openzeppelin.com/
+
+// envío de transacciones sin metamask desde nuestro back:
+https://github.com/DigiCris/EthTransaction/blob/main/transaction.js
+
+
+
+
+// De acá para abajo hay una ayuda para la idea de crearse un liquidity pool. Las funciones no están
+// bien hechas, habría que revisarlas y corregirlas. Solo tiene la idea.
+
+/// Liquidity pool para agregar
+import "@openzeppelin/contracts/utils/math/Math.sol";
+
+function addLiquidity(uint256 _token1Amount, uint256 _token2Amount) public {
+    require(_token1Amount > 0 && _token2Amount > 0, "Amounts must be greater than 0");
+
+    if (price == 0) {
+        price = _token2Amount / _token1Amount;
+    } else {
+        require(_token2Amount / _token1Amount == price, "Prices don't match");
+    }
+
+    token1.transferFrom(msg.sender, address(this), _token1Amount);
+    token2.transferFrom(msg.sender, address(this), _token2Amount);
+
+    uint256 liquidityTokenAmount = sqrt(_token1Amount * _token2Amount);
+    _mintLiquidityToken(msg.sender, liquidityTokenAmount);
+}
+
+function sqrt(uint256 number) public pure returns (uint256) {
+    return Math.sqrt(number);
+}
+
+function _mintLiquidityToken(address recipient, uint256 amount) private {
+    // Implement the logic to mint the liquidity token
+    // and send it to the recipient
+}
+
+
+
+
+
+
+
+
+
+
+
+// para comprar del pool
+
+function buy(uint256 amountToken0) public {
+    // Transferir token0 desde msg.sender al contrato
+    token0.transferFrom(msg.sender, address(this), amountToken0);
+
+    // Calcular la cantidad de token1 a transferir
+    uint256 amountToken1 = Token1AmountToGive(amountToken0);
+
+    // Transferir token1 del contrato a msg.sender
+    token1.transfer(msg.sender, amountToken1);
+
+    // Actualizar las reservas
+    reserveToken0 += amountToken0;
+    reserveToken1 -= amountToken1;
+
+    // Recalcular el precio
+    updatePrice();
+}
+
+function Token1AmountToGive(uint256 amountToken0) public view returns (uint256) {
+    // Calcular la cantidad de token1 a transferir
+    uint256 amountToken1 = amountToken0 * reserveToken1 / reserveToken0;
+
+    // Aplicar la tasa de trading fee
+    uint256 amountToken1AfterFee = amountToken1 * (100 - TRADING_FEE) / 100;
+
+    return amountToken1AfterFee;
+}
+
+function updatePrice() private {
+    // Recalcular el precio en función de las reservas
+    uint256 newPrice = reserveToken1 * 1e18 / reserveToken0;
+    // Actualizar el precio
+    // ...
+}
+
+
+
+
+// Remove liquidity
+function removeLiquidity(uint256 _liquidityAmount) public {
+    require(_liquidityAmount > 0, "Liquidity amount must be greater than 0");
+    require(liquidityBalances[msg.sender] >= _liquidityAmount, "Insufficient liquidity");
+
+    uint256 token1Amount = (_liquidityAmount * token1.balanceOf(address(this))) / totalLiquidity;
+    uint256 token2Amount = (_liquidityAmount * token2.balanceOf(address(this))) / totalLiquidity;
+
+    // Transfiere los tokens al usuario que retira la liquidez
+    token1.transfer(msg.sender, token1Amount);
+    token2.transfer(msg.sender, token2Amount);
+
+    // Actualiza los saldos de liquidez
+    liquidityBalances[msg.sender] -= _liquidityAmount;
+    totalLiquidity -= _liquidityAmount;
+
+    // Realiza cualquier otro ajuste necesario
+}
